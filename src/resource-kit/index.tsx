@@ -1,10 +1,10 @@
 import {
   IResourceReference,
   IResourceState,
-  IResourceFetcher,
   LoadTransaction,
   ResourceFetchResult,
   ResourceFetchResultEntry,
+  LoadTransactionHandler,
 } from './types'
 import React, { createContext, ReactNode, useContext, useEffect } from 'react'
 import {
@@ -39,7 +39,6 @@ export function ResourceManagerProvider(props: {
 
 export function useResourceState<T>(
   reference: IResourceReference<T>,
-  fetcher: IResourceFetcher<T>,
 ): IResourceState<T> {
   const store = useStore()
   const config = useContext(ConfigContext)!
@@ -47,16 +46,25 @@ export function useResourceState<T>(
     getResourceState(config.selectState(state), reference),
   )
   const { loading, outdated } = resourceState
+  const onFetchRequest = reference.type.options.onFetchRequest
   useEffect(() => {
-    if (shouldFetch({ loading, outdated })) {
-      fetcher({
+    if (
+      shouldFetch({ loading, outdated }) &&
+      typeof onFetchRequest === 'function'
+    ) {
+      onFetchRequest({
         reference,
         async beginLoadTransaction(references, transactionHandler) {
-          await runLoadTransaction(store as any, references, transactionHandler)
+          await runLoadTransaction(
+            store as any,
+            config,
+            references,
+            transactionHandler,
+          )
         },
       })
     }
-  }, [loading, outdated, fetcher, store])
+  }, [loading, outdated, onFetchRequest, store])
   return resourceState
 }
 
@@ -65,13 +73,18 @@ export function useResourceState<T>(
  */
 async function runLoadTransaction(
   store: Store<any, ResourcesReduxAction>,
+  config: ResourceKitConfig,
   references: IResourceReference<any>[],
-  fn: (tx: LoadTransaction) => PromiseLike<void>,
+  fn: LoadTransactionHandler,
 ) {
+  const state = config.selectState(store.getState())
+  references = references.filter(r => shouldFetch(getResourceState(state, r)))
+  if (references.length === 0) return
   const startTime = Date.now()
-  const toMapKey = ({ key, typeName }: IResourceReference<any>): string =>
-    `${key}:${typeName}`
+  const toMapKey = ({ key, type }: IResourceReference<any>): string =>
+    `${type.typeName}:${key}`
   store.dispatch({ type: 'Resource loading started', startTime, references })
+  console.log('Begin fetching', references.map(toMapKey))
   const defaultResult: ResourceFetchResult = {
     status: 'error',
     error: new Error(
@@ -94,7 +107,7 @@ async function runLoadTransaction(
     unusedReferences.delete(mapKey)
   }
   try {
-    await fn({
+    await fn(references, {
       receive(reference, item) {
         putResultEntry(reference, { status: 'completed', data: item })
       },

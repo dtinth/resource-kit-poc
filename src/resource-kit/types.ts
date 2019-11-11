@@ -5,8 +5,18 @@ export interface IResourceState<T> {
   data?: T
 }
 
-export interface IResourceReference<T> {
+export interface IResourceType<T> {
   typeName: string
+  ref(key: string): IResourceReference<T>
+  options: ResourceOptions<T>
+}
+
+export type ResourceOptions<T> = {
+  onFetchRequest?: (fetchRequest: IResourceFetchRequest<T>) => void
+}
+
+export interface IResourceReference<T> {
+  type: IResourceType<T>
   key: string
 }
 
@@ -25,12 +35,9 @@ export type LoadTransaction = {
 }
 
 export type LoadTransactionHandler = (
+  referencesToLoad: IResourceReference<any>[],
   transaction: LoadTransaction,
 ) => PromiseLike<void>
-
-export interface IResourceFetcher<T> {
-  (fetchRequest: IResourceFetchRequest<T>): void
-}
 
 export interface IResourceFetchRequest<T> {
   reference: IResourceReference<T>

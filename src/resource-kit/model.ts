@@ -1,5 +1,9 @@
-import { IResourceReference, IResourceState } from './types'
-import { useRef, useEffect } from 'react'
+import {
+  IResourceReference,
+  IResourceState,
+  ResourceOptions,
+  IResourceType,
+} from './types'
 
 /**
  * Represents a state of resource that has never been fetched.
@@ -19,10 +23,13 @@ export const FRESH_RESOURCE: IResourceState<any> = {
 }
 
 /** This class represents a type of resource to be managed. */
-export class ResourceType<T> {
-  constructor(public typeName: string) {}
+export class ResourceType<T> implements IResourceType<T> {
+  constructor(
+    public typeName: string,
+    public options: ResourceOptions<T> = {},
+  ) {}
   ref(key: string): IResourceReference<T> {
-    return { typeName: this.typeName, key }
+    return { type: this, key }
   }
 }
 

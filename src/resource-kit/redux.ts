@@ -3,8 +3,6 @@ import {
   IResourceState,
   IResourceReference,
   ResourceFetchResultEntry,
-  LoadTransaction,
-  ResourceFetchResult,
 } from './types'
 import { Reducer, Store } from 'redux'
 import { NULL_RESOURCE, FRESH_RESOURCE } from './model'
@@ -42,7 +40,7 @@ export const resourcesReducer: Reducer<
     case 'Resource loading started':
       return state.withMutations(m => {
         for (const reference of action.references) {
-          const keyPath = [reference.typeName, reference.key]
+          const keyPath = [reference.type.typeName, reference.key]
           m.setIn(keyPath, {
             ...(m.getIn(keyPath) || NULL_RESOURCE),
             outdated: false,
@@ -53,7 +51,7 @@ export const resourcesReducer: Reducer<
     case 'Resource received':
       return state.withMutations(m => {
         for (const { reference, result } of action.resultEntries) {
-          const keyPath = [reference.typeName, reference.key]
+          const keyPath = [reference.type.typeName, reference.key]
           m.setIn(keyPath, {
             ...(m.getIn(keyPath) || FRESH_RESOURCE),
             loading: false,
@@ -75,5 +73,5 @@ export function getResourceState<T>(
   state: ResourcesReduxState,
   reference: IResourceReference<T>,
 ): IResourceState<T> {
-  return state.getIn([reference.typeName, reference.key]) || NULL_RESOURCE
+  return state.getIn([reference.type.typeName, reference.key]) || NULL_RESOURCE
 }
