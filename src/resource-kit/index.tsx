@@ -1,12 +1,17 @@
 import {
   IResourceReference,
-  IResourceState,
   LoadTransaction,
   ResourceFetchResult,
   ResourceFetchResultEntry,
-  LoadTransactionHandler,
+  IResourceStateWithReference,
 } from './types'
-import React, { createContext, ReactNode, useContext, useEffect } from 'react'
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+} from 'react'
 import {
   ResourcesReduxState,
   getResourceState,
@@ -41,7 +46,7 @@ const loaderMap = new Map<ResourceType<any>, Set<string>>()
 
 export function useResourceState<T>(
   reference: IResourceReference<T>,
-): IResourceState<T> {
+): IResourceStateWithReference<T> {
   const store = useStore()
   const config = useContext(ConfigContext)!
   const resourceState = useSelector(state =>
@@ -82,7 +87,13 @@ export function useResourceState<T>(
       }
     }
   }, [loading, outdated, referenceType, key, store])
-  return resourceState
+  return useMemo(
+    () => ({
+      ...resourceState,
+      reference,
+    }),
+    [resourceState, reference],
+  )
 }
 
 /**

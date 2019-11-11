@@ -6,11 +6,13 @@
   "main": "src/index.js",
   "dependencies": {
     "@types/immutable": "^3.8.7",
+    "@types/invariant": "^2.2.30",
     "@types/react": "^16.9.11",
     "@types/react-dom": "^16.9.4",
     "@types/react-redux": "^7.1.5",
     "@types/redux-logger": "^3.0.7",
     "immutable": "^4.0.0-rc.12",
+    "invariant": "^2.2.4",
     "react": "^16.11.0",
     "react-dom": "^16.11.0",
     "react-redux": "7.1.3",

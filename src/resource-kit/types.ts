@@ -5,6 +5,10 @@ export interface IResourceState<T> {
   data?: T
 }
 
+export interface IResourceStateWithReference<T> extends IResourceState<T> {
+  reference: IResourceReference<T>
+}
+
 export interface IResourceType<T> {
   typeName: string
   ref(key: string): IResourceReference<T>

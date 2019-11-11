@@ -1,24 +1,17 @@
-import React, { useEffect, useRef, ReactNode, Fragment } from 'react'
+import React, { ReactNode, Fragment } from 'react'
 import ReactDOM from 'react-dom'
 import './styles.css'
+import { createStore, combineReducers, applyMiddleware } from 'redux'
 import {
-  createStore,
-  combineReducers,
-  Reducer,
-  AnyAction,
-  Store,
-  applyMiddleware,
-} from 'redux'
-import {
-  IResourceReference,
   useResourceState,
   ResourceType,
-  IResourceState,
   resourcesReducer,
   ResourceManagerProvider,
+  IResourceStateWithReference,
 } from './resource-kit'
-import { Provider, useSelector } from 'react-redux'
+import { Provider } from 'react-redux'
 import logger from 'redux-logger'
+import invariant from 'invariant'
 
 // ============================================= Types
 type ProjectList = { projectIds: string[] }
@@ -87,22 +80,22 @@ const projectResources = new ResourceType<Project>('Project')
 
 const projectTasksResources = new ResourceType<ProjectTasks>('ProjectTasks', {
   async load(keys, tx) {
-    return Promise.all(
-      keys.map(async key => {
-        const tasks = await fetchTasksByProject(key)
-        for (const t of tasks) {
-          tx.receive(taskResources.ref(t._id), t)
-        }
-        return { taskIds: tasks.map(t => t._id) }
-      }),
-    )
+    invariant(keys.length === 1, 'ProjectTasks does not support batching')
+    const [key] = keys
+    const tasks = await fetchTasksByProject(key)
+    for (const t of tasks) {
+      tx.receive(taskResources.ref(t._id), t)
+    }
+    return [{ taskIds: tasks.map(t => t._id) }]
   },
 })
 
 const taskResources = new ResourceType<Task>('Task', {
   async load(keys, tx) {
-    const tasks = await Promise.all(keys.map(key => fetchTaskById(key)))
-    return tasks
+    invariant(keys.length === 1, 'Task does not support batching')
+    const [key] = keys
+    const task = await fetchTaskById(key)
+    return [task]
   },
 })
 
@@ -149,7 +142,7 @@ function App() {
 function ProjectList() {
   const listState = useProjectList()
   return (
-    <div>
+    <ResourceStateVisualizer state={listState}>
       {listState.data && (
         <ul className="bg-white p-2">
           {listState.data.projectIds.map(id => {
@@ -157,7 +150,11 @@ function ProjectList() {
               <li key={id}>
                 <button className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4">
                   <ProjectStateConnector projectId={id}>
-                    {ps => (ps.data && ps.data.title) || `Project ${id}`}
+                    {ps => (
+                      <ResourceStateVisualizer state={ps}>
+                        {(ps.data && ps.data.title) || `Project ${id}`}
+                      </ResourceStateVisualizer>
+                    )}
                   </ProjectStateConnector>
                 </button>
               </li>
@@ -165,7 +162,7 @@ function ProjectList() {
           })}
         </ul>
       )}
-    </div>
+    </ResourceStateVisualizer>
   )
 }
 
@@ -173,12 +170,12 @@ function TaskList(props: { projectId: string }) {
   const projectState = useProject(props.projectId)
   const tasksState = useTasksInProject(props.projectId)
   return (
-    <section>
+    <ResourceStateVisualizer state={projectState}>
       <h1>
         {(projectState.data && projectState.data.title) ||
           `Project ${props.projectId}`}
       </h1>
-      <div>
+      <ResourceStateVisualizer state={tasksState}>
         {tasksState.data && (
           <ul className="bg-white p-2">
             {tasksState.data.taskIds.map(id => {
@@ -186,7 +183,11 @@ function TaskList(props: { projectId: string }) {
                 <li key={id}>
                   <button className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4">
                     <TaskStateConnector taskId={id}>
-                      {ts => (ts.data && ts.data.title) || `Task ${id}`}
+                      {ts => (
+                        <ResourceStateVisualizer state={ts}>
+                          {(ts.data && ts.data.title) || `Task ${id}`}
+                        </ResourceStateVisualizer>
+                      )}
                     </TaskStateConnector>
                   </button>
                 </li>
@@ -194,15 +195,15 @@ function TaskList(props: { projectId: string }) {
             })}
           </ul>
         )}
-      </div>
-    </section>
+      </ResourceStateVisualizer>
+    </ResourceStateVisualizer>
   )
 }
 
 function TaskView(props: { taskId: string }) {
   const taskState = useTask(props.taskId)
   return (
-    <section>
+    <ResourceStateVisualizer state={taskState}>
       <h1>
         {(taskState.data && taskState.data.title) || `Task ${props.taskId}`}
       </h1>
@@ -214,7 +215,11 @@ function TaskView(props: { taskId: string }) {
                 <li key={id}>
                   <button className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4">
                     <TaskStateConnector taskId={id}>
-                      {ts => (ts.data && ts.data.title) || `Task ${id}`}
+                      {ts => (
+                        <ResourceStateVisualizer state={ts}>
+                          {(ts.data && ts.data.title) || `Task ${id}`}
+                        </ResourceStateVisualizer>
+                      )}
                     </TaskStateConnector>
                   </button>
                 </li>
@@ -223,22 +228,44 @@ function TaskView(props: { taskId: string }) {
           </ul>
         )}
       </div>
-    </section>
+    </ResourceStateVisualizer>
   )
 }
 function ProjectStateConnector(props: {
   projectId: string
-  children: (state: IResourceState<Project>) => ReactNode
+  children: (state: IResourceStateWithReference<Project>) => ReactNode
 }) {
   const state = useProject(props.projectId)
   return <Fragment>{props.children(state)}</Fragment>
 }
 function TaskStateConnector(props: {
   taskId: string
-  children: (state: IResourceState<Task>) => ReactNode
+  children: (state: IResourceStateWithReference<Task>) => ReactNode
 }) {
   const state = useTask(props.taskId)
   return <Fragment>{props.children(state)}</Fragment>
+}
+
+function ResourceStateVisualizer(props: {
+  state: IResourceStateWithReference<any>
+  children: ReactNode
+}) {
+  const state = props.state
+  const bg = state.loading
+    ? 'bg-blue-500'
+    : state.error
+    ? 'bg-red-500'
+    : state.data
+    ? 'bg-green-500'
+    : 'bg-gray-600'
+  return (
+    <div className={`${bg} p-1 pt-0`}>
+      <div className="text-white text-xs font-bold text-left">
+        {state.reference.type.typeName}:{state.reference.key}
+      </div>
+      <div className={'p-1 bg-white'}>{props.children}</div>
+    </div>
+  )
 }
 
 const reducer = combineReducers({
