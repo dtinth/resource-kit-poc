@@ -82,8 +82,8 @@ export function useResourceState<T>(
             )
           }, 16)
         }
-        runLoadTransaction(store as any, config, referenceType, [key], load)
       } else {
+        runLoadTransaction(store as any, config, referenceType, [key], load)
       }
     }
   }, [loading, outdated, referenceType, key, store])

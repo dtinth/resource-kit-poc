@@ -58,11 +58,12 @@ async function fetchTasksByProject(projectId: string): Promise<Task[]> {
   return tasksByProjects[projectId].map((t: string) => allTasks[t])
 }
 
-async function fetchTaskById(taskId: string): Promise<Task> {
-  await new Promise(r => setTimeout(r, 300 + 400 * Math.random()))
-  return (
-    allTasks[taskId] ||
-    Object.values(allTasks).find((t: any) => t.alt_id === taskId)
+async function fetchTasksByIds(taskIds: string[]): Promise<Task[]> {
+  await new Promise(r => setTimeout(r, 300 + Math.random() * 700))
+  return taskIds.map(
+    taskId =>
+      allTasks[taskId] ||
+      Object.values(allTasks).find((t: any) => t.alt_id === taskId),
   )
 }
 
@@ -93,10 +94,8 @@ const projectTasksResources = new ResourceType<ProjectTasks>('ProjectTasks', {
 
 const taskResources = new ResourceType<Task>('Task', {
   async load(keys, tx) {
-    invariant(keys.length === 1, 'Task does not support batching')
-    const [key] = keys
-    const task = await fetchTaskById(key)
-    return [task]
+    const tasks = await fetchTasksByIds(keys)
+    return tasks
   },
 })
 
