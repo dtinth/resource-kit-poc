@@ -74,37 +74,35 @@ async function fetchTaskById(taskId: string): Promise<Task> {
 
 // ============================================= Resource types
 const projectListResources = new ResourceType<ProjectList>('ProjectList', {
-  onFetchRequest(request) {
-    request.beginLoadTransaction([request.reference], async (toLoad, tx) => {
-      const projects = await fetchAllProjects()
-      tx.receive(request.reference, { projectIds: projects.map(p => p._id) })
-      for (const p of projects) {
-        tx.receive(projectResources.ref(p._id), p)
-      }
-    })
+  async load(keys, tx) {
+    const projects = await fetchAllProjects()
+    for (const p of projects) {
+      tx.receive(projectResources.ref(p._id), p)
+    }
+    return [{ projectIds: projects.map(p => p._id) }]
   },
 })
 
 const projectResources = new ResourceType<Project>('Project')
 
 const projectTasksResources = new ResourceType<ProjectTasks>('ProjectTasks', {
-  onFetchRequest(request) {
-    request.beginLoadTransaction([request.reference], async (toLoad, tx) => {
-      const tasks = await fetchTasksByProject(request.reference.key)
-      tx.receive(request.reference, { taskIds: tasks.map(t => t._id) })
-      for (const t of tasks) {
-        tx.receive(taskResources.ref(t._id), t)
-      }
-    })
+  async load(keys, tx) {
+    return Promise.all(
+      keys.map(async key => {
+        const tasks = await fetchTasksByProject(key)
+        for (const t of tasks) {
+          tx.receive(taskResources.ref(t._id), t)
+        }
+        return { taskIds: tasks.map(t => t._id) }
+      }),
+    )
   },
 })
 
 const taskResources = new ResourceType<Task>('Task', {
-  onFetchRequest(request) {
-    request.beginLoadTransaction([request.reference], async (toLoad, tx) => {
-      const task = await fetchTaskById(request.reference.key)
-      tx.receive(request.reference, task)
-    })
+  async load(keys, tx) {
+    const tasks = await Promise.all(keys.map(key => fetchTaskById(key)))
+    return tasks
   },
 })
 

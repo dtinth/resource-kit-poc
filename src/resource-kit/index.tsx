@@ -13,7 +13,7 @@ import {
   ResourcesReduxAction,
 } from './redux'
 import { useStore, useSelector } from 'react-redux'
-import { shouldFetch } from './model'
+import { shouldFetch, ResourceType } from './model'
 import { Store } from 'redux'
 
 export * from './types'
@@ -37,6 +37,8 @@ export function ResourceManagerProvider(props: {
   )
 }
 
+const loaderMap = new Map<ResourceType<any>, Set<string>>()
+
 export function useResourceState<T>(
   reference: IResourceReference<T>,
 ): IResourceState<T> {
@@ -46,25 +48,40 @@ export function useResourceState<T>(
     getResourceState(config.selectState(state), reference),
   )
   const { loading, outdated } = resourceState
-  const onFetchRequest = reference.type.options.onFetchRequest
+  const referenceType = reference.type
+  const key = reference.key
   useEffect(() => {
-    if (
-      shouldFetch({ loading, outdated }) &&
-      typeof onFetchRequest === 'function'
-    ) {
-      onFetchRequest({
-        reference,
-        async beginLoadTransaction(references, transactionHandler) {
-          await runLoadTransaction(
-            store as any,
-            config,
-            references,
-            transactionHandler,
-          )
-        },
-      })
+    const {
+      batch = true,
+      maxBatchSize = Infinity,
+      load,
+    } = referenceType.options
+    if (shouldFetch({ loading, outdated }) && typeof load === 'function') {
+      if (batch) {
+        const existingBatch = loaderMap.get(referenceType)
+        if (existingBatch && existingBatch.size < maxBatchSize) {
+          existingBatch.add(key)
+        } else {
+          const newBatch = new Set<string>([key])
+          loaderMap.set(referenceType, newBatch)
+          setTimeout(() => {
+            if (loaderMap.get(referenceType) === newBatch) {
+              loaderMap.delete(referenceType)
+            }
+            runLoadTransaction(
+              store as any,
+              config,
+              referenceType,
+              Array.from(newBatch),
+              load,
+            )
+          }, 16)
+        }
+        runLoadTransaction(store as any, config, referenceType, [key], load)
+      } else {
+      }
     }
-  }, [loading, outdated, onFetchRequest, store])
+  }, [loading, outdated, referenceType, key, store])
   return resourceState
 }
 
@@ -74,12 +91,16 @@ export function useResourceState<T>(
 async function runLoadTransaction(
   store: Store<any, ResourcesReduxAction>,
   config: ResourceKitConfig,
-  references: IResourceReference<any>[],
-  fn: LoadTransactionHandler,
+  resourceType: ResourceType<any>,
+  keys: string[],
+  fn: (keys: string[], tx: LoadTransaction) => PromiseLike<any[]>,
 ) {
   const state = config.selectState(store.getState())
-  references = references.filter(r => shouldFetch(getResourceState(state, r)))
-  if (references.length === 0) return
+  keys = keys.filter(key =>
+    shouldFetch(getResourceState(state, resourceType.ref(key))),
+  )
+  if (keys.length === 0) return
+  const references = keys.map(key => resourceType.ref(key))
   const startTime = Date.now()
   const toMapKey = ({ key, type }: IResourceReference<any>): string =>
     `${type.typeName}:${key}`
@@ -107,7 +128,7 @@ async function runLoadTransaction(
     unusedReferences.delete(mapKey)
   }
   try {
-    await fn(references, {
+    const result = await fn(references.map(r => r.key), {
       receive(reference, item) {
         putResultEntry(reference, { status: 'completed', data: item })
       },
@@ -115,6 +136,18 @@ async function runLoadTransaction(
         putResultEntry(reference, { status: 'error', error })
       },
     })
+    for (const [index, reference] of references.entries()) {
+      if (index < result.length) {
+        putResultEntry(reference, { status: 'completed', data: result[index] })
+      } else {
+        putResultEntry(reference, {
+          status: 'error',
+          error: new Error(
+            `The fetching function did not return a result for ${reference.type} at key ${reference.key} (index ${index}).`,
+          ),
+        })
+      }
+    }
   } catch (error) {
     defaultResult.error = error
     throw error

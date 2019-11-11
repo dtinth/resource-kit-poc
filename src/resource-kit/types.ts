@@ -12,7 +12,9 @@ export interface IResourceType<T> {
 }
 
 export type ResourceOptions<T> = {
-  onFetchRequest?: (fetchRequest: IResourceFetchRequest<T>) => void
+  load?: (keys: string[], tx: LoadTransaction) => PromiseLike<T[]>
+  batch?: boolean
+  maxBatchSize?: number
 }
 
 export interface IResourceReference<T> {
