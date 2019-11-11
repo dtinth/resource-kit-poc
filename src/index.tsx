@@ -18,7 +18,7 @@ const resourceKit = createResourceManager({
   selector: state => state.resources,
 })
 const reducer = combineReducers({
-  resources: resourceKit,
+  resources: resourceKit.reducer,
 })
 
 const store = createStore(reducer)
