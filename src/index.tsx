@@ -22,7 +22,7 @@ type Task = { _id: string; alt_id: string; title: string; related: string[] }
 // ============================================= Mock API
 
 async function fetchAllProjects() {
-  await new Promise(r => setTimeout(r, 500))
+  await new Promise(r => setTimeout(r, 300 + Math.random() * 400))
   return [
     { _id: 'a', title: 'Project A' },
     { _id: 'b', title: 'Project B' },
@@ -54,9 +54,10 @@ const tasksByProjects = {
 } as any
 
 async function fetchTasksByProject(projectId: string): Promise<Task[]> {
-  await new Promise(r => setTimeout(r, 500))
+  await new Promise(r => setTimeout(r, 300 + Math.random() * 700))
   return tasksByProjects[projectId].map((t: string) => allTasks[t])
 }
+
 async function fetchTaskById(taskId: string): Promise<Task> {
   await new Promise(r => setTimeout(r, 300 + 400 * Math.random()))
   return (
