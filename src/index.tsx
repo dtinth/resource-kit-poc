@@ -12,6 +12,7 @@ import {
 import { Provider } from 'react-redux'
 import logger from 'redux-logger'
 import invariant from 'invariant'
+import { uiStateReducer, useUIState, useUIStateMutator } from './ui-state'
 
 // ============================================= Types
 type ProjectList = { projectIds: string[] }
@@ -20,7 +21,6 @@ type ProjectTasks = { taskIds: string[] }
 type Task = { _id: string; alt_id: string; title: string; related: string[] }
 
 // ============================================= Mock API
-
 async function fetchAllProjects() {
   await new Promise(r => setTimeout(r, 300 + Math.random() * 400))
   return [
@@ -118,6 +118,7 @@ function useTask(taskId: string) {
 }
 
 function App() {
+  const { currentProjectId, currentTaskId } = useUIState()
   return (
     <div className="p-4">
       <h1>resource-kit demo</h1>
@@ -128,11 +129,19 @@ function App() {
         </div>
         <div className="w-1/2 bg-gray-500 p-4">
           Tasks in project
-          <TaskList projectId={'a'} />
+          {currentProjectId ? (
+            <TaskList projectId={currentProjectId} />
+          ) : (
+            <p className="text-3xl">Select a project</p>
+          )}
         </div>
         <div className="w-1/4 bg-gray-400 p-4">
           Task information
-          <TaskView taskId={'t1'} />
+          {currentTaskId ? (
+            <TaskView taskId={currentTaskId} />
+          ) : (
+            <p className="text-3xl">Select task</p>
+          )}
         </div>
       </div>
     </div>
@@ -141,6 +150,7 @@ function App() {
 
 function ProjectList() {
   const listState = useProjectList()
+  const { viewProject } = useUIStateMutator()
   return (
     <ResourceStateVisualizer state={listState}>
       {listState.data && (
@@ -148,7 +158,10 @@ function ProjectList() {
           {listState.data.projectIds.map(id => {
             return (
               <li key={id}>
-                <button className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4">
+                <button
+                  className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4"
+                  onClick={() => viewProject(id)}
+                >
                   <ProjectStateConnector projectId={id}>
                     {ps => (
                       <ResourceStateVisualizer state={ps}>
@@ -169,6 +182,7 @@ function ProjectList() {
 function TaskList(props: { projectId: string }) {
   const projectState = useProject(props.projectId)
   const tasksState = useTasksInProject(props.projectId)
+  const { viewTask } = useUIStateMutator()
   return (
     <ResourceStateVisualizer state={projectState}>
       <h1>
@@ -181,7 +195,10 @@ function TaskList(props: { projectId: string }) {
             {tasksState.data.taskIds.map(id => {
               return (
                 <li key={id}>
-                  <button className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4">
+                  <button
+                    className="block w-full border border-white rounded hover:border-gray-200 bg-white text-blue-500 hover:bg-gray-200 py-2 px-4"
+                    onClick={() => viewTask(id)}
+                  >
                     <TaskStateConnector taskId={id}>
                       {ts => (
                         <ResourceStateVisualizer state={ts}>
@@ -272,6 +289,7 @@ function ResourceStateVisualizer(props: {
 
 const reducer = combineReducers({
   resources: resourcesReducer,
+  uiState: uiStateReducer,
 })
 const store = createStore(reducer, applyMiddleware(logger))
 
