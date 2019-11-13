@@ -251,19 +251,21 @@ function ResourceStateVisualizer(props: {
   children: ReactNode
 }) {
   const state = props.state
-  const bg = state.loading
-    ? 'bg-blue-500'
+  const [border, bg] = state.loading
+    ? ['border-blue-500', 'bg-blue-500']
     : state.error
-    ? 'bg-red-500'
+    ? ['border-red-500', 'bg-red-500']
     : state.data
-    ? 'bg-green-500'
-    : 'bg-gray-600'
+    ? ['border-green-500', 'bg-green-500']
+    : ['border-gray-600', 'bg-gray-600']
   return (
-    <div className={`${bg} p-1 pt-0`}>
-      <div className="text-white text-xs font-bold text-left">
-        {state.reference.type.typeName}:{state.reference.key}
+    <div className={`relative`}>
+      {props.children}
+      <div className={`inset-0 absolute border ${border} pointer-events-none`}>
+        <div className={`top-0 left-0 absolute ${bg} text-xs text-white`}>
+          {state.reference.type.typeName}:{state.reference.key}
+        </div>
       </div>
-      <div className={'p-1 bg-white'}>{props.children}</div>
     </div>
   )
 }
