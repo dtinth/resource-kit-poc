@@ -25,6 +25,7 @@ export function uiStateReducer(
 export function useUIState(): UIState {
   return useSelector((state: any) => state.uiState)
 }
+
 export function useUIStateMutator() {
   const dispatch = useDispatch<Dispatch<UIAction>>()
   return useMemo(() => {
@@ -33,5 +34,5 @@ export function useUIStateMutator() {
         dispatch({ type: 'View project', projectId }),
       viewTask: (taskId: string) => dispatch({ type: 'View task', taskId }),
     }
-  }, [])
+  }, [dispatch])
 }

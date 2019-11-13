@@ -86,7 +86,7 @@ export function useResourceState<T>(
         runLoadTransaction(store as any, config, referenceType, [key], load)
       }
     }
-  }, [loading, outdated, referenceType, key, store])
+  }, [loading, outdated, referenceType, key, store, config])
   return useMemo(
     () => ({
       ...resourceState,
@@ -139,14 +139,17 @@ async function runLoadTransaction(
     unusedReferences.delete(mapKey)
   }
   try {
-    const result = await fn(references.map(r => r.key), {
-      receive(reference, item) {
-        putResultEntry(reference, { status: 'completed', data: item })
+    const result = await fn(
+      references.map(r => r.key),
+      {
+        receive(reference, item) {
+          putResultEntry(reference, { status: 'completed', data: item })
+        },
+        error(reference, error) {
+          putResultEntry(reference, { status: 'error', error })
+        },
       },
-      error(reference, error) {
-        putResultEntry(reference, { status: 'error', error })
-      },
-    })
+    )
     for (const [index, reference] of references.entries()) {
       if (index < result.length) {
         putResultEntry(reference, { status: 'completed', data: result[index] })

@@ -4,7 +4,7 @@ import {
   IResourceReference,
   ResourceFetchResultEntry,
 } from './types'
-import { Reducer, Store } from 'redux'
+import { Reducer } from 'redux'
 import { NULL_RESOURCE, FRESH_RESOURCE } from './model'
 
 /**
